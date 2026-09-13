@@ -1,0 +1,83 @@
+import os
+import json
+from google import genai
+from google.genai import types
+
+class AuraAsistent:
+    def __init__(self, pamet_subor="aura_pamet.json"):
+        self.pamet_subor = pamet_subor
+        self.client = genai.Client()
+        
+        self.system_instruction = (
+            "Si AURA, adaptívny AI asistent napojený na jadro TRINITY. "
+            "Tvojou úlohou je pomáhať, učiť sa z konverzácií a rásť spolu s používateľom."
+        )
+        
+        # Načítanie predchádzajúcej histórie zo súboru, ak existuje
+        historia_zaznamy = self.nahrat_pamet()
+
+        # Vytvorenie chatu s prenesenou históriou, aby bot nestratil pamäť
+        self.chat = self.client.chats.create(
+            model="gemini-2.5-flash",
+            config=types.GenerateContentConfig(
+                system_instruction=self.system_instruction,
+                temperature=0.7,
+            ),
+            history=historia_zaznamy
+        )
+        print("[TRINITY CORE / AURA: Inicializovaná s trvalou pamäťou]")
+
+    def nahrat_pamet(self):
+        """Načíta históriu správ zo súboru JSON, ak existuje."""
+        if os.path.exists(self.pamet_subor):
+            try:
+                with open(self.pamet_subor, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    print([f"Načítaných {len(data)} správ z predchádzajúcej pamäte."])
+                    return data
+            except Exception as e:
+                print(f"Chyba pri čítaní pamäte: {e}")
+        return []
+
+    def ulozit_pamet(self):
+        """Uloží aktuálnu históriu chatu do súboru JSON."""
+        try:
+            # Získame kompletnú históriu z Gemini chat objektu
+            historia = []
+            for sprava in self.chat.get_history():
+                # Prevedieme štruktúru správy do slovníka pre JSON
+                historia.append({
+                    "role": sprava.role,
+                    "parts": [{"text": cast.text} for cast in sprava.parts]
+                })
+            
+            with open(self.pamet_subor, "w", encoding="utf-8") as f:
+                json.dump(historia, f, ensure_ascii=False, indent=4)
+            print("[Pamäť úspešne uložená do súboru.]")
+        except Exception as e:
+            print(f"Chyba pri ukladaní pamäte: {e}")
+
+    def spusti(self):
+        print("Napíš 'koniec' pre ukončenie a uloženie relácie.\n")
+        while True:
+            vstup = input("Ty: ")
+            if vstup.lower() in ["koniec", "exit", "quit"]:
+                self.ulozit_pamet()
+                print("AURA: Pamäť uložená. Ukončujem reláciu.")
+                break
+            
+            if not vstup.strip():
+                continue
+
+            try:
+                odpoved = self.chat.send_message(vstup)
+                print(f"AURA: {odpoved.text}\n")
+                # Voliteľne môžeme pamäť uložiť po každej správe, 
+                # aby sa nič nestratilo ani pri náhlom vypnutí:
+                self.ulozit_pamet()
+            except Exception as e:
+                print(f"Chyba: {e}\n")
+
+if __name__ == "__main__":
+    bot = AuraAsistent()
+    bot.spusti()
