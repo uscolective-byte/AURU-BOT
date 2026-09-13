@@ -1,16 +1,17 @@
 from core.security import SecurityChecker
+from core.config import ConfigManager
 from modules.system_module import SystemModule
 
 class TrinityCore:
     def __init__(self):
         self.security = SecurityChecker()
+        self.config = ConfigManager()  # Inicializácia konfiguračného manažéra
         self.modules = []
         
         # Automatická registrácia modulov
         self.register_modules()
 
     def register_modules(self):
-        # Sem budeme postupne pridávať nové moduly
         self.modules.append(SystemModule())
         print(f"[TRINITY CORE] Úspešne zaregistrovaných modulov: {len(self.modules)}")
 
@@ -21,18 +22,21 @@ class TrinityCore:
         if not self.security.verify(command):
             return "Chyba: Príkaz bol zablokovaný bezpečnostným protokolom TRINITY."
 
-        # 2. Smerovanie na moduly
-        response = self._route_command(command)
-        return response
+        # Špeciálny interný príkaz na kontrolu stavu kľúčov/konfigu (bezpečná ukážka)
+        if "konfig" in command.lower() or "kluce" in command.lower():
+            version = self.config.get("VERSION")
+            name = self.config.get("TRINITY_NAME")
+            has_gemini = "Nastavený" if self.config.get("API_KEY_GEMINI") else "Chýba"
+            return f"TRINITY CORE [Config]: Systém '{name}' (v.{version}). Stav API kľúča Gemini: {has_gemini}."
 
-    def _route_command(self, command: str) -> str:
-        # Prejdeme všetky zaregistrované moduly a zistíme, ktorý vie príkaz spracovať
+        # 2. Smerovanie na moduly
         for module in self.modules:
             if module.can_handle(command):
                 return module.execute(command)
 
-        # Základná fallback odpoveď, ak žiaden modul príkaz nepoznal
+        # 3. Fallback
         if "ahoj" in command.lower():
             return "TRINITY CORE: Zdravím vás. Systémy sú plne funkčné."
         
+        return f"TRINITY CORE: Príkaz '{command}' bol prijatý, ale žiadny aktívny modul nenašiel zhodu."
         return f"TRINITY CORE: Príkaz '{command}' bol prijatý, ale žiadny aktívny modul nenašiel zhodu."
